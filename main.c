@@ -28,7 +28,7 @@ int bigrams_cmp(const void* a, const void* b);
 
 int main(void) {
 
-    FILE* file = fopen("license.txt", "r");
+    FILE* file = fopen("trainingdata.txt", "r");
     if (file == NULL) {
         printf("Error: File not open\n");
         exit(EXIT_FAILURE);
