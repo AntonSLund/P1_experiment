@@ -8,96 +8,112 @@
 #define COUNT 10000
 
 typedef struct {
-    const char *word;
-    int occurrences;
-}CountedWord;
-
-typedef struct {
     const char *word0;
     const char *word1;
     int occurrences;
 }Bigram;
 
+typedef struct {
+    const char *word0;
+    const char *word1;
+    const char *word2;
+    int occurrences;
+}Trigram;
+
 int next_word(FILE* file, char word[], int size);
 int read_next_words(FILE* file, char* words[], int words_size);
 int find_bigrams(Bigram bigrams[], int bigrams_size, char* words[], int words_len);
-int find_occurrences(CountedWord counted_words[], int counted_words_size, char* words[], int words_len);
-int word_cmp(const void* a, const void* b);
-int counted_word_cmp(const void* a, const void* b);
+int find_trigrams(Trigram trigrams[], int trigrams_size, char* words[], int words_len);
 int bigrams_cmp(const void* a, const void* b);
+int trigrams_cmp(const void* a, const void* b);
 
 int main(void) {
 
+    // Opens the file in read.
     FILE* file = fopen("trainingdata.txt", "r");
+    // A check that secures that the file has opened.
     if (file == NULL) {
         printf("Error: File not open\n");
         exit(EXIT_FAILURE);
     }
 
+    // Makes an array to store the words in the file.
     char** words = malloc(sizeof(char*)*COUNT);
+    // Saves the words in the array and gives back the length of the array.
     int words_len = read_next_words(file, words, COUNT);
 
-    for (int i = 0; i < words_len; i++) {
-        //printf("%s \n", words[i]);
-    }
-    //qsort(words, words_len, sizeof(words[0]), word_cmp);
-
-
-    CountedWord* counted_words = malloc(sizeof(*counted_words)*COUNT);
-    int counted_words_len = find_occurrences(counted_words, COUNT, words, words_len);
-    qsort(counted_words, counted_words_len, sizeof(counted_words[0]), counted_word_cmp);
-
-    //for (int i = 0; i < counted_words_len; i++) {
-    //    printf("%s %d\n", counted_words[i].word, counted_words[i].occurrences);
-    //}
-
+    // Makes an array to store the different bigram in.
     Bigram* bigrams = malloc(sizeof(*bigrams)*COUNT);
+    // Inputs the bigram into the array and returns the length of the array
     int number_of_bigrams = find_bigrams(bigrams, COUNT, words, words_len);
+    // We sort the array and prints it.
     qsort(bigrams, number_of_bigrams, sizeof(bigrams[0]), bigrams_cmp);
     for (int i = 0; i < number_of_bigrams; i++) {
         printf("%s %s %d\n", bigrams[i].word0, bigrams[i].word1, bigrams[i].occurrences);
     }
+    free(bigrams);
 
+    // This section is just like with the bigrams but for trigrams.
+    Trigram* trigrams = malloc(sizeof(*trigrams)*COUNT);
+    int number_of_trigrams = find_trigrams(trigrams, COUNT, words, words_len);
+    qsort(trigrams, number_of_trigrams, sizeof(trigrams[0]), trigrams_cmp);
+    for (int i = 0; i < number_of_trigrams; i++) {
+        printf("%s %s %s %d\n", trigrams[i].word0, trigrams[i].word1, trigrams[i].word2, trigrams[i].occurrences);
+    }
+    free(trigrams);
+
+
+    // Remember to free the space we malloc, also close the file.
     for (int i = 0; i < words_len; i++) {
         free(words[i]);
     }
-
-    free(bigrams);
     free(words);
-    free(counted_words);
     fclose(file);
     return 0;
 }
 
+// Reads a singular word.
 int next_word(FILE* file, char word[], int size) {
+    // Looks at a character in the file and saves it in ch.
     int ch = fgetc(file);
     int len = 0;
+    // If the ch we are looking at it is ' ' or new line then we get the next character.
     while (isspace(ch)) {
         ch = fgetc(file);
     }
+    // Here if we are at a letter it will save the letter in a array.
     while (!isspace(ch) && ch != EOF) {
         word[len] = tolower(ch);
         len++;
         ch = fgetc(file);
     }
+    // Adds the null char to the array.
     word[len] = '\0';
 
+    // Returns the length of array word.
     return len;
 }
 
+// Saves the word into an array named words.
 int read_next_words(FILE* file, char* words[], int words_size) {
     int words_len = 0;
     for (int i = 0; i < words_size; i++) {
+        // Makes an array to save a word.
         char *word = malloc(sizeof(char)*100);
+        // Saves the length of the word.
         int word_len = next_word(file, word, 100);
+        // If the word length is 0. It didn't find a word. Free the memory of the previous malloc. Then break the loop.
         if (word_len == 0) {
             free(word);
             break;
         }
+        // Change the memory from the whole length to the length of the word.
         word = realloc(word, word_len + 1);
+        // Saves the word in a predefined array.
         words[words_len] = word;
         words_len += 1;
     }
+    // Returns the length of array words.
     return words_len;
 }
 
@@ -138,51 +154,43 @@ int find_bigrams(Bigram bigrams[], int bigrams_size, char* words[], int words_le
     return number_of_bigrams;
 }
 
-static CountedWord* find_counted_word_by_word(CountedWord counted_words[], int counted_words_len, const char* word) {
-    for (int j = 0; j < counted_words_len; j++) {
-        if (strcmp(word, counted_words[j].word) == 0) {
-            return &counted_words[j];
+static Trigram* find_trigram_by_trigram(Trigram trigrams[], int number_of_trigrams, const char* word0, const char* word1, const char* word2) {
+    for (int i = 0; i < number_of_trigrams; i++) {
+        if (strcmp(word0, trigrams[i].word0) == 0 && strcmp(word1, trigrams[i].word1) == 0 && strcmp(word2, trigrams[i].word2) == 0) {
+            return &trigrams[i];
         }
     }
     return NULL;
 }
 
-int find_occurrences(CountedWord counted_words[], int counted_words_size, char* words[], int words_len) {
-    int counted_words_len = 0;
-    for (int i = 0; i < words_len; i++) {
-        CountedWord* existing = find_counted_word_by_word(counted_words, counted_words_len, words[i]);
+int find_trigrams(Trigram trigrams[], int trigrams_size, char* words[], int words_len) {
+    int number_of_trigrams = 0;
+    for (int i = 2; i < words_len; i++) {
+        const char* word0 = words[i - 2];
+        const char* word1 = words[i - 1];
+        const char* word2 = words[i];
+        assert (word0 && word1);
+        Trigram* existing = find_trigram_by_trigram(trigrams, number_of_trigrams, word0, word1, word2);
 
         if (existing != NULL) {
             existing->occurrences += 1;
             continue;
         }
 
-        if (counted_words_len >= counted_words_size) {
+        if (number_of_trigrams >= trigrams_size) {
             return -1;
         }
 
-        counted_words[counted_words_len] = (CountedWord) {
-            .word = words[i],
+        trigrams[number_of_trigrams] = (Trigram) {
+            .word0 = word0,
+            .word1 = word1,
+            .word2 = word2,
             .occurrences = 1,
         };
-        counted_words_len += 1;
-    }
-    return counted_words_len;
-}
 
-int word_cmp(const void* a, const void* b) {
-    const char* const* word_a = a;
-    const char* const* word_b = b;
-    return strcmp(*word_a, *word_b);
-}
-
-int counted_word_cmp(const void* a, const void* b) {
-    const CountedWord* counted_word_a = a;
-    const CountedWord* counted_word_b = b;
-    if (counted_word_a->occurrences != counted_word_b->occurrences) {
-        return counted_word_b->occurrences - counted_word_a->occurrences;
+        number_of_trigrams += 1;
     }
-    return strcmp(counted_word_a->word, counted_word_b->word);
+    return number_of_trigrams;
 }
 
 int bigrams_cmp(const void* a, const void* b) {
@@ -195,4 +203,21 @@ int bigrams_cmp(const void* a, const void* b) {
         return strcmp(bigram_a->word1, bigram_b->word1);
     }
     return strcmp(bigram_a->word0, bigram_b->word0);
+}
+
+int trigrams_cmp(const void* a, const void* b) {
+    const Trigram* trigram_a = a;
+    const Trigram* trigram_b = b;
+    if (trigram_a->occurrences != trigram_b->occurrences) {
+        return trigram_b->occurrences - trigram_a->occurrences;
+    }
+    int word0_cmp = strcmp(trigram_a->word0, trigram_b->word0);
+    if (word0_cmp != 0) {
+        return word0_cmp;
+    }
+    int word1_cmp = strcmp(trigram_a->word1, trigram_b->word1);
+    if (word1_cmp != 0) {
+        return word1_cmp;
+    }
+    return strcmp(trigram_a->word2, trigram_b->word2);
 }
