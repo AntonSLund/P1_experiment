@@ -41,7 +41,8 @@ int main(void) {
     char** words = malloc(sizeof(char*)*COUNT);
     // Saves the words in the array and gives back the length of the array.
     int words_len = read_next_words(file, words, COUNT);
-
+#define USE_BIGRAM
+#ifdef USE_BIGRAM
     // Makes an array to store the different bigram in.
     Bigram* bigrams = malloc(sizeof(*bigrams)*COUNT);
     // Inputs the bigram into the array and returns the length of the array
@@ -53,6 +54,7 @@ int main(void) {
     }
     free(bigrams);
 
+#else
     // This section is just like with the bigrams but for trigrams.
     Trigram* trigrams = malloc(sizeof(*trigrams)*COUNT);
     int number_of_trigrams = find_trigrams(trigrams, COUNT, words, words_len);
@@ -61,7 +63,7 @@ int main(void) {
         printf("%s %s %s %d\n", trigrams[i].word0, trigrams[i].word1, trigrams[i].word2, trigrams[i].occurrences);
     }
     free(trigrams);
-
+#endif
 
     // Remember to free the space we malloc, also close the file.
     for (int i = 0; i < words_len; i++) {
@@ -72,17 +74,39 @@ int main(void) {
     return 0;
 }
 
+static bool is_whitespace(char c) {
+    return isspace(c)
+        || c == '('
+        || c == ')'
+        || c == '"'
+        || c == ','
+        || c == '['
+        || c == ']';
+}
+static bool is_EOL(char c) {
+    return (c == '.');
+}
+
 // Reads a singular word.
 int next_word(FILE* file, char word[], int size) {
     // Looks at a character in the file and saves it in ch.
     int ch = fgetc(file);
     int len = 0;
     // If the ch we are looking at it is ' ' or new line then we get the next character.
-    while (isspace(ch)) {
+    while (is_whitespace(ch)) {
         ch = fgetc(file);
     }
-    // Here if we are at a letter it will save the letter in a array.
-    while (!isspace(ch) && ch != EOF) {
+    if (is_EOL(ch)) {
+        while (is_EOL(ch)) {
+            word[len] = ch;
+            len++;
+            ch = fgetc(file);
+        }
+        word[len] = '\0';
+        return len;
+    }
+    // Here if we are at a letter it will save the letter in an array.
+    while (ch != EOF && !is_whitespace(ch) && !is_EOL(ch)) {
         word[len] = tolower(ch);
         len++;
         ch = fgetc(file);
@@ -196,13 +220,15 @@ int find_trigrams(Trigram trigrams[], int trigrams_size, char* words[], int word
 int bigrams_cmp(const void* a, const void* b) {
     const Bigram* bigram_a = a;
     const Bigram* bigram_b = b;
-    if (bigram_a->occurrences != bigram_b->occurrences) {
-        return bigram_b->occurrences - bigram_a->occurrences;
+    int word0 = strcmp(bigram_a->word0, bigram_b->word0);
+    if (word0 != 0) {
+        return word0;
     }
-    if (strcmp(bigram_a->word0, bigram_b->word0) == 0) {
-        return strcmp(bigram_a->word1, bigram_b->word1);
+    int word1 = strcmp(bigram_a->word1, bigram_b->word1);
+    if (word1 != 0) {
+        return word1;
     }
-    return strcmp(bigram_a->word0, bigram_b->word0);
+    return bigram_b->occurrences - bigram_a->occurrences;
 }
 
 int trigrams_cmp(const void* a, const void* b) {
